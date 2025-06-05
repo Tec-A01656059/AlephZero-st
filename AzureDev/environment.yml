@@ -1,0 +1,13 @@
+
+name: AzureDev
+channels:
+ - conda-forge
+ - defaults
+dependencies:
+ - python=3.8.11
+ - pip
+ - pip:
+   - streamlit
+   - pandas
+   - numpy
+   - plotly
