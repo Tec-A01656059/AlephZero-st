@@ -15,7 +15,7 @@ if not st.session_state.logged_in:
 
     with placeholder.form("login"):
         # Restrict the width of the header image
-        st.image("interfaz/images/tca_header.jpeg", use_column_width=True, width=200)
+        st.image("interfaz/images/tca_header.jpeg")
         st.markdown("<h1 style='text-align: center;'>TCA ClientProfiler</h1>", unsafe_allow_html=True)
         st.markdown("### Iniciar sesión")
         username = st.text_input("Usuario", placeholder="Ingresa tu usuario")
@@ -43,5 +43,5 @@ pages = {
 }
 
 if st.session_state.logged_in:
-    pg = st.navigation(pages, position="sidebar")
+    pg = st.navigation(pages, position="hidden")
     pg.run()

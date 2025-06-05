@@ -1,16 +1,21 @@
 import streamlit as st
 import pandas as pd
+import random
 import plotly.express as px
 
 # Set up the page configuration
+random.seed(42)  # For reproducibility
 
-data = pd.read_csv("interfaz/app/datafeik.csv")
-data['RegId'] = data['Profile_id'].astype(str) + data['Reservation_clave'] + data['CreatedOn'].astype(str)
-data['CreatedOn'] = pd.to_datetime(data['CreatedOn'])
-data['Datestart'] = pd.to_datetime(data['Datestart'])
-data['Dateend'] = pd.to_datetime(data['Dateend'])
-data['GraphDate'] = data['Datestart'].dt.to_period('M')
+data = pd.read_csv("interfaz/app/GH_DataHistory.csv")
+data['GraphDate'] = pd.to_datetime(data['GraphDate']).dt.to_period('M')
 
+b1, b2 = st.columns([0.9, 0.1])
+b1.empty()
+if b2.button("⬅ Volver"):
+    st.switch_page("inicio.py")
+
+# Create a unique identifier for each reservation
+data['RegId'] = random.sample(range(100000, 999999), len(data))
 st.title("Dashboard Interactivo de Clientes")
 
 # Sidebar para selección de variables y tipo de gráfico

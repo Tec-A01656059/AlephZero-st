@@ -1,4 +1,4 @@
-Profile,Adults,Minors,FreeMinors,Nights,USDAmount
-A,1,0,0,1.7,90.5
-B,1.98,0,0,1.52,344.96
-C,1.99,0.39,0.62,3.33,1806.63
+Profile,Adults,Minors,FreeMinors,Nights,LocalCurrencyAmount
+A,1,0,0,1.72,1757.23
+B,2.18,0,0,1.65,2198.08
+C,2.02,0.57,0.89,3.46,4405.72

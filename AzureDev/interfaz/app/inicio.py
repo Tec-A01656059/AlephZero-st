@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import random
 import plotly.express as px
 import plotly.graph_objects as go
 from functions import go_to_page, plot_bar_chart, average_rate, average_los, kpi_reservations, kpi_revenue
@@ -20,20 +21,46 @@ def basic_layout(profile):
     
     profile_facts = profile_data[profile_data['Profile'] == profile]
     
-    b1.image(f'interfaz/images/cluster{profile}.jpg', use_column_width=True)
+    b1.image(f'interfaz/images/cluster{profile}.jpg')
     with b1.container(border=True):
         st.write("##### Características del perfil:")
         st.write(f'- Adulto(s): {int(np.ceil(profile_facts["Adults"].values[0])):2d}')
         st.write(f'- Menor(es) mayores de 3 años: {int(np.ceil(profile_facts["Minors"].values[0])):2d}')
         st.write(f'- Menor(es) menores de 3 años: {int(np.ceil(profile_facts["FreeMinors"].values[0])):2d}')
         st.write(f'- Estancia promedio: {profile_facts["Nights"].values[0]} noches')
-        st.write(f'- Tarifa promedio: {profile_facts["USDAmount"].values[0]} USD')
+        st.write(f'- Tarifa promedio: {profile_facts["LocalCurrencyAmount"].values[0]} USD')
     
     with b2.container():
-        m2, m3 = st.columns(2)
-        m2.metric(label="Total de clientes", value=filtered_df['RegId'].nunique())
-        m3.metric(label="Ingresos totales por perfil", value=f"${filtered_df['USDAmount'].sum():,.2f}")
+        
+        st.markdown("<h2 style='text-align: center;'>KPIs Principales</h2>", unsafe_allow_html=True)
+        k1,k2,k3,k4 = st.columns([0.95, 0.95, 0.95, 0.95])
 
+        adr_actual, adr_anterior = average_rate(filtered_df, profile)
+        k1.metric(
+            label="Tarifa promedio por reservación (ADR)", 
+            value=f'{adr_actual:.2f} USD',
+            delta = f"{adr_actual - adr_anterior:.2f} USD respecto al mes anterior")
+        
+        los_actual, los_anterior = average_los(filtered_df, profile)
+        k2.metric(
+            label="Longitud de estancia promedio (LOS)", 
+            value=f'{los_actual:.2f} noches',
+            delta = f"{los_actual - los_anterior:.2f} noches respecto al mes anterior")
+        
+        res_actual, res_anterior = kpi_reservations(filtered_df, profile)
+        k3.metric(
+            label="Total de reservaciones",
+            value=f"{res_actual} reservaciones",
+            delta=f"{res_actual - res_anterior} respecto al mes anterior")
+        
+        ing_actual, ing_anterior = kpi_revenue(filtered_df, profile)
+        k4.metric(
+            label="Ingresos totales",
+            value=f"${ing_actual:,.2f} USD",
+            delta=f"${ing_actual - ing_anterior:.2f} respecto al mes anterior"
+        )
+        
+        m2,m3 = st.columns([0.95, 0.95])
         # Create a line plot for the number of clients
         m2.plotly_chart(plot_bar_chart(filtered_df, profile, 'clients'), use_container_width=True)
         
@@ -43,25 +70,25 @@ def basic_layout(profile):
     with b2.expander("Estrategias de marketing", expanded=False):
         st.write("Pregúntale a alguien de merca bro")
 
+random.seed(42)  # For reproducibility
+
 # Streamlit app setup
-if "page" not in st.session_state:
+if "page" not in st.session_state or st.session_state.page not in ["inicio", "A", "B", "C"]:
     st.session_state.page = "inicio"
 
 
 with st.spinner('Updating report...'):
     # Data processing
     profile_data = pd.read_csv("interfaz/app/profiles.csv")
-
-    data = pd.read_csv("interfaz/app/datafeik.csv")
-    data['RegId'] = data['Profile_id'].astype(str) + data['Reservation_clave'] + data['CreatedOn'].astype(str)
-    data['CreatedOn'] = pd.to_datetime(data['CreatedOn'])
-    data['Datestart'] = pd.to_datetime(data['Datestart'])
-    data['Dateend'] = pd.to_datetime(data['Dateend'])
-    data['GraphDate'] = data['Datestart'].dt.to_period('M')
+    data = pd.read_csv("interfaz/app/GH_DataHistory.csv")
+    # Convert YYYY-MM to datetime and create a period for graphing
+    data['GraphDate'] = pd.to_datetime(data['GraphDate']).dt.to_period('M')
+    # Create a unique identifier for each reservation
+    data['RegId'] = random.sample(range(100000, 999999), len(data))
     
     ## Gallery Section
     if st.session_state.page == "inicio":
-        st.image("interfaz/images/tca_header2.jpeg", use_column_width=True)
+        st.image("interfaz/images/tca_header2.jpeg")
         
         ## Header Section
         t1,t2 = st.columns([0.6, 0.2])
@@ -70,17 +97,25 @@ with st.spinner('Updating report...'):
         #t1.title("TCA ClientProfiler")
         t1.markdown("Descubre los perfiles de tus clientes y optimiza tus estrategias de negocio con decisiones informadas: analiza comportamientos, identifica tendencias y maximiza tus ingresos.")
 
-        t2.empty()
         if st.session_state.username == 'admin':
-            t2.button("Modificar datos", on_click=go_to_page, args=("admin",))
-        t2.button("Más visualizaciones", on_click=go_to_page, args=("dashboard.py",))
-        t2.button("Clasificar reservación", on_click=go_to_page, args=("clasificador",))
+            if t2.button("Modificar datos"):
+                st.switch_page("admin.py")
+                st.rerun()
+        
+        if t2.button("Más visualizaciones"):
+            st.switch_page("dashboard.py")
+            st.rerun()
+        
+        if t2.button("Clasificar reservación"):
+            go_to_page("clasificar")
+            st.rerun()
 
+        
         g1,g2,g3 = st.columns([0.7, 0.7, 0.5])
 
         ## General Visualizations
         fig1 = go.Figure()
-        grouped_data = data.groupby(['GraphDate', 'Profile']).agg({'RegId': 'nunique'}).reset_index()
+        grouped_data = data.groupby(['GraphDate', 'Profile']).agg({'RegId':'nunique'}).reset_index()
         grouped_data['GraphDate'] = grouped_data['GraphDate'].dt.to_timestamp()
 
         # Stacked bar chart for revenue per month
@@ -104,18 +139,18 @@ with st.spinner('Updating report...'):
 
 
         fig2 = go.Figure()
-        grouped_data = data.groupby(['GraphDate', 'Profile']).agg({'USDAmount': 'sum'}).reset_index()
+        grouped_data = data.groupby(['GraphDate', 'Profile']).agg({'LocalCurrencyAmount': 'sum'}).reset_index()
         grouped_data['GraphDate'] = grouped_data['GraphDate'].dt.to_timestamp()
 
         # Stacked bar chart for revenue per month
         fig2 = px.bar(
             grouped_data,
             x='GraphDate',
-            y='USDAmount',
+            y='LocalCurrencyAmount',
             color='Profile',
             title='Ingreso mensual por perfil',
             barmode='stack',
-            labels={'GraphDate': 'Fecha', 'USDAmount': 'Ingresos'},
+            labels={'GraphDate': 'Fecha', 'LocalCurrencyAmount': 'Ingresos'},
             template='plotly_white'
         )
         fig2.update_layout(
