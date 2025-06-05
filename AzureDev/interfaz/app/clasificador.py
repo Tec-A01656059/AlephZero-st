@@ -1,42 +1,55 @@
 import streamlit as st
 import numpy as np
-
+import pickle
+import json
+import pandas as pd
 # Dummy classifier for demonstration
-class DummyClassifier:
-    def predict(self, X):
-        # Simple logic for demonstration
-        adults, minors_over_3, minors_under_3, stay_length, room_type = X[0]
-        if adults > 2:
-            return ['Family']
-        elif room_type == 1:
-            return ['Business']
-        else:
-            return ['Couple']
 
+class Requester:
+    def __init__(self, path_to_model):
+        # Load the pickle model
+        self.model = None
+        with open(path_to_model, 'rb') as file:
+            self.model = pickle.load(file)
+
+    def post(self, data, scoring_uri = None, headers=None):
+        input_json = json.loads(data)
+        df = pd.DataFrame(input_json["data"])
+        X = df.drop(columns=['cluster', 'LocalCurrencyAmount'])
+        # Simulate a POST request to the model
+        output = self.model.predict(X)
+        return json.dumps({
+            'result': output.tolist()
+        })
+        
 class GuestProfileClassifier:
-    def __init__(self):
-        self.room_types = {
-            'Single': 0,
-            'Double': 1,
-            'Suite': 2,
-            'Family': 3
+    def __init__(self, path_to_model):
+
+        self.requester = Requester(path_to_model)
+
+    def classify(self, data_path, muestra=10):
+        input_data = pd.read_csv(data_path).head(muestra)
+        # Serialize
+        input_data = input_data.to_json(orient='records')
+        input_data = {
+            'data': json.loads(input_data)
         }
-        self.clf = DummyClassifier()
+        model_input = json.dumps(input_data)
+        headers = {'Content-Type': 'application/json'}
+        scoring_uri = None
+        # Call the model
+        
+        response = self.requester.post(model_input, scoring_uri, headers)
+        # Deserialize
+        response = json.loads(response)
+        outputs = response['result']
+        return outputs
 
-    def classify(self, adults, minors_over_3, minors_under_3, stay_length, room_type_str):
-        room_type = self.room_types[room_type_str]
-        features = np.array([[adults, minors_over_3, minors_under_3, stay_length, room_type]])
-        return self.clf.predict(features)[0]
-
-    def streamlit_ui(self):
-        st.title("Guest Profile Classifier")
-        with st.popover("Input Guest Information"):
-            adults = st.number_input("Number of adults", min_value=0, max_value=10, value=1)
-            minors_over_3 = st.number_input("Number of minors (3+ years)", min_value=0, max_value=10, value=0)
-            minors_under_3 = st.number_input("Number of minors (under 3 years)", min_value=0, max_value=10, value=0)
-            stay_length = st.number_input("Length of stay (nights)", min_value=1, max_value=30, value=1)
-            room_type_str = st.selectbox("Type of room", list(self.room_types.keys()))
-            submit = st.button("Classify")
-            if submit:
-                profile = self.classify(adults, minors_over_3, minors_under_3, stay_length, room_type_str)
-                st.success(f"Closest profile assignment: **{profile}**")
+if __name__ == "__main__":
+    # Initialize the classifier
+    classifier = GuestProfileClassifier(path_to_model='AzureDev/interfaz/app/model.pkl')
+    # Classify the data
+    outputs = classifier.classify(data_path='AzureDev/interfaz/app/Validation_Data.csv', muestra = 10)
+    # Print the outputs
+    print(outputs)
+    
